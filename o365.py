@@ -11,9 +11,9 @@ import paramiko
 import requests
 import os
 import datetime
-import creds
 import time
 import netaddr
+import creds
 
 ################################
 ####### Custom Variables #######
