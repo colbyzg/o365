@@ -6,16 +6,14 @@ object-group in a Cisco ASA with the new IP addreses. It can also
 remove IPs, but that functionality is commented out.
 '''
 
-import re
-import sys
-### Need Exscript installed - pip install https://github.com/knipknap/exscript/tarball/master
-from Exscript.util.interact import read_login
-import Exscript
-### Need requests installed - pip install requests
+import re 
+import paramiko
 import requests
 import os
 import datetime
 import creds
+import time
+import netaddr
 
 ################################
 ####### Custom Variables #######
@@ -24,7 +22,7 @@ import creds
 url = "http://technet.microsoft.com/en-us/library/hh373144.aspx"
 
 ### Set device IPs
-devices = ["192.168.14.2", "192.168.14.1", "1.1.1.1", "192.168.14.2"]
+devices = ["192.168.25.254"]
 
 ### Set o365 object-group
 object_group = "MS-OFFICE365-SUBNETS"
@@ -32,12 +30,11 @@ object_group = "MS-OFFICE365-SUBNETS"
 ### Set device username and password - or remove user and pass variables and change the "account" variable to "read_login()" to ask for password at script run - no automation.
 username = creds.username
 password = creds.password
-account = Exscript.Account(username, password)
-# account = read_login()
+enable_pw = creds.enable_pw
 
 date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
 
-### Functions ###
+#### Functions ####
 def main():
 	print("\n" + "#" * 95)
 	print("Microsoft URL: {}".format(url))
@@ -55,36 +52,18 @@ def main():
 		os.rename("new-ip-list.txt", "old-ip-list.txt")
 	else:
 		open("old-ip-list.txt", "w+").close()
-				
-	new = open("new-ip-list.txt", "w+")
-	for ip in ip_list:
-		new.writelines(ip + "\n")
-	new.close()
 	
-	configure(devices, account)
+	with open("new-ip-list.txt", "w+") as out_file:
+		for ip in ip_list:
+			out_file.writelines(ip + "\n")
+	
+	configure(devices)
 
-def cidr2dotmask(ip):
-	mask_dict = {'/16': ' 255.255.0.0', 
-				'/17': ' 255.255.128.0', 
-				'/18': ' 255.255.192.0', 
-				'/19': ' 255.255.224.0', 
-				'/20': ' 255.255.240.0', 
-				'/21': ' 255.255.248.0', 
-				'/22': ' 255.255.252.0', 
-				'/23': ' 255.255.254.0', 
-				'/24': ' 255.255.255.0', 
-				'/25': ' 255.255.255.128', 
-				'/26': ' 255.255.255.192', 
-				'/27': ' 255.255.255.224', 
-				'/28': ' 255.255.255.240', 
-				'/29': ' 255.255.255.248', 
-				'/30': ' 255.255.255.252', 
-				'/31': ' 255.255.255.254', 
-				'/32': ' 255.255.255.255'}
-	for key in mask_dict.keys():
-		if key in ip:
-			mask = re.sub(key, mask_dict[key], ip.rstrip())
-	return mask
+def enable(conn, enable_pw):
+	conn.send("enable\r")
+	time.sleep(1)
+	conn.send(enable_pw + "\r")
+	time.sleep(1)
 
 def compare():
 	commands = ["object-group network " + object_group,]
@@ -93,46 +72,46 @@ def compare():
 	for ip in new:
 		if ip in old:
 			pass
-		if ip not in old and "/" in ip:
-			ip = cidr2dotmask(ip)
-			commands.append(" network-object " + ip)
-		elif ip not in old:
-			commands.append(" network-object host " + ip)
+		if ip not in old:
+			ip = netaddr.IPNetwork(ip)
+			commands.append(" network-object {} {}".format(str(ip.ip), str(ip.netmask)))
 	for ip in old:
 		if ip not in new and "/" in ip:
-			ip = cidr2dotmask(ip)
-			print("------ {} appears to have been removed from MS IP list ------".format(ip))
-			removed = open("removed-ip." + date + ".txt", "a")
-			removed.writelines(ip + "\n")
-			removed.close()
+			ip = netaddr.IPNetwork(ip)
+			print("------ {} appears to have been removed from MS IP list ------".format(str(ip.cidr)))
+			with open("removed-ip." + date + ".txt", "a") as out_file:
+				out_file.writelines(ip + "\n")
 			# commands.append(" no network-object " + ip)
-		elif ip not in new:
-			print("------ {} appears to have been removed from MS IP list ------".format(ip))
-			# commands.append(" no network-object host " + ip)
-			removed = open("removed-ip." + date + ".txt", "a")
-			removed.writelines(ip + "\n")
-			removed.close()
 	return commands
 
-def configure(devices, account):
-	conn = Exscript.protocols.SSH2(timeout=2)
-	conn.set_driver('ios')
+def configure(devices):
 	commands = compare()
 	if len(commands) > 1:
 		for device in devices:
 			try:
-				conn.connect(device)
-				conn.login(account)
-				conn.send("conf t\r")
+				output = []
+				conn_pre = paramiko.SSHClient()
+				conn_pre.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+				conn_pre.connect(device, username=username, password=password)
+				conn = conn_pre.invoke_shell()
+				time.sleep(1)
+				if ">" in conn.recv(100000):
+					enable(conn, enable_pw)
+					time.sleep(0.5)
 				print("\n====== Configuring {} ======".format(device))
-				for cmd in commands:
-					conn.execute(cmd)
-					output = conn.response
-					out_file = open(device + "_" + date + ".out", "a")
+				conn.send("conf t\r")
+				time.sleep(1)
+
+				for command in commands:
+					conn.send(command + "\r")
+					time.sleep(0.5)
+
+				output.append(conn.recv(100000))
+
+				with open(device + "_" + date + ".out", "a") as out_file:
 					out_file.writelines(output)
-				conn.send('wr\r')
-				conn.close()
 				print("\n====== Configuration applied successfully, output file '{}_{}.out' was created ======\n".format(device, date))
+
 			except Exception as e:
 				print("\n!!!!!! ------ There was an issue with {}, see file: '{}_{}.error.out' ------ !!!!!!\n".format(device, device, date))
 				out_file = open(device + "_" + date + ".error.out", "w")
