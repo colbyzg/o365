@@ -100,13 +100,13 @@ def configure(devices):
 					time.sleep(0.5)
 				print("\n====== Configuring {} ======".format(device))
 				conn.send("conf t\r")
-				time.sleep(1)
+				time.sleep(0.5)
 
 				for command in commands:
+					# print conn.recv(100000)
 					conn.send(command + "\r")
-					time.sleep(0.5)
-
-				output.append(conn.recv(100000))
+					time.sleep(0.25)
+					output.append(conn.recv(100000))
 
 				with open(device + "_" + date + ".out", "a") as out_file:
 					out_file.writelines(output)
