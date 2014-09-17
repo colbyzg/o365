@@ -3,10 +3,11 @@ o365
 
 # Description:
 This script parses Microsoft's Office 365 IP webpage (http://technet.microsoft.com/en-us/library/hh373144.aspx) 
-and updates a specific object-group in a Cisco ASA with the new IP addreses. 
+and updates a specific object-group in a Cisco ASA with the new IP addreses. It can also remove IPs, but that 
+functionality is commented out. 
 
-It can also remove IPs, but that functionality is commented out. If run with the "--fresh" paramater, the script will delete the
-existing IP text files from previous runs - this can be useful when debugging.
+If run with the "--fresh" paramater, the script will delete the existing IP text files from 
+previous runs - this can be useful when debugging.
 
 # Usage:
 <pre>
