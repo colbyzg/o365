@@ -16,7 +16,7 @@ previous runs - this can be useful when debugging.
 ###############################################################################################
 Microsoft URL: http://technet.microsoft.com/en-us/library/hh373144.aspx
 User Account: colby-test
-Devices: 192.168.14.2, 192.168.14.1, 1.1.1.1, 192.168.14.2
+Devices: 192.168.14.2, 192.168.14.1, 1.1.1.1
 Object Group: MS-OFFICE365-SUBNETS
 ###############################################################################################
 
