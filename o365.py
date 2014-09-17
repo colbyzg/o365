@@ -37,7 +37,7 @@ date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
 
 #### Functions ####
 def main():
-	if len(sys.argv) > 1 and sys.argv[1].lower() == "fresh":
+	if len(sys.argv) > 1 and sys.argv[1].lower() == "--fresh":
 		try:
 			os.remove('new-ip-list.txt')
 			os.remove('old-ip-list.txt')
