@@ -6,7 +6,8 @@ object-group in a Cisco ASA with the new IP addreses. It can also
 remove IPs, but that functionality is commented out.
 '''
 
-import re 
+import re
+import sys
 import paramiko
 import requests
 import os
@@ -36,6 +37,14 @@ date = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
 
 #### Functions ####
 def main():
+	if len(sys.argv) > 1 and sys.argv[1].lower() == "fresh":
+		try:
+			os.remove('new-ip-list.txt')
+			os.remove('old-ip-list.txt')
+			print("\n------ Old files removed, building fresh config ------")
+		except:
+			pass
+
 	print("\n" + "#" * 95)
 	print("Microsoft URL: {}".format(url))
 	print("User Account: {}".format(username))
